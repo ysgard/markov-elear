@@ -1,6 +1,14 @@
-(ns markov-elear.generator)
+(ns markov-elear.generator
+  (:require [clojure.set]
+            [twitter.api.restful :as twitter]
+            [twitter.oauth :as twitter-oauth]
+            [environ.core :refer [env]]))
 
-(require 'clojure.set)
+(def my-creds (twitter-oauth/make-oauth-creds (env :app-consumer-key)
+                                              (env :app-consumer-secret)
+                                              (env :user-access-token)
+                                              (env :user-access-secret)))
+
 
 (defn word-chain [word-transitions]
   (reduce (fn [r t] (merge-with clojure.set/union r
@@ -42,11 +50,11 @@
   (text->word-chain
    (slurp (clojure.java.io/resource fname))))
 
-(def files ["quangle-wrangle.txt" "conan.txt" "dunwich.txt" "nonsense.txt" "rime.txt"])
+(def files ["conan.txt" "dunwich.txt" "rime.txt" "quangle-wrangle.txt" "nonsense.txt"])
 (def functional-leary (apply merge-with clojure.set/union (map process-file files)))
 
 (def prefix-list ["On the" "They went" "And all" "We think"
-                  "For every" "No other" "To a" "And every"
+                  "For every" "No other" "And every"
                   "We, too," "For his" "And the" "But the"
                   "Are the" "The Pobble" "For the" "When we"
                   "In the" "Yet we" "With only" "Are the"
@@ -55,7 +63,8 @@
                   "And at" "What a" "Of the"
                   "O please" "So that" "And all" "When they"
                   "But before" "Whoso had" "And nobody" "And it's"
-                  "For any" "For example," "Also in" "In contrast"])
+                  "For any" "For example," "Also in" "In contrast"
+                  "I saw" "He saw" "They saw" "He" "She" "They"])
 
 (defn end-at-last-punctuation [text]
   (let [trimmed-to-last-punct (apply str (re-seq #"[\s\w]+[^.!?,]*[.!?,]" text))
@@ -67,5 +76,16 @@
     (clojure.string/replace cleaned-text #"\"" "'")))
 
 (defn tweet-text []
-  (let [text (generate-text (-> prefix-list shuffle first) functional-leary)]
+  (let [text (generate-text (-> prefix-list shuffle first)  functional-leary)]
     (end-at-last-punctuation text)))
+
+(defn status-update []
+  (let [tweet (tweet-text)]
+    (println "Generated tweet is :" tweet)
+    (println "Char count is :" (count tweet))
+    (when (and (not-empty tweet)
+               (> 20 (count tweet)))
+      (try (twitter/statuses-update :oauth-creds my-creds
+                                    :params {:status tweet})
+           (catch Exception e (println "Oh no! " (.getMessage e)))))))
+             
