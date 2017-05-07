@@ -57,3 +57,15 @@
                   "But before" "Whoso had" "And nobody" "And it's"
                   "For any" "For example," "Also in" "In contrast"])
 
+(defn end-at-last-punctuation [text]
+  (let [trimmed-to-last-punct (apply str (re-seq #"[\s\w]+[^.!?,]*[.!?,]" text))
+        trimmed-to-last-word (apply str (re-seq #".*[^a-zA-Z]+" text))
+        result-text (if (empty? trimmed-to-last-punct)
+                      trimmed-to-last-word
+                      trimmed-to-last-punct)
+        cleaned-text (clojure.string/replace result-text #"[,| ]$" ".")]
+    (clojure.string/replace cleaned-text #"\"" "'")))
+
+(defn tweet-text []
+  (let [text (generate-text (-> prefix-list shuffle first) functional-leary)]
+    (end-at-last-punctuation text)))
